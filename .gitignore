@@ -1,0 +1,7 @@
+# Ambientes virtuais
+venv/
+__pycache__/
+
+# Credenciais e arquivos de chaves
+.env
+*.json
