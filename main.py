@@ -25,20 +25,31 @@ class LampaDespertador:
         """
         print(f"Iniciando Fase 1: Despertar Suave ({duracao_minutos} minutos)...")
         
-        self.lampa.turn_on()
-        self.lampa.set_mode('white')
-        
         temp_cor = 100 # 100 costuma ser a cor mais quente (amarelada)
+        
+        # 1º Passo: Configurar brilho no mínimo ANTES de ligar
+        # Isso evita que ela ligue dando um "flash" no brilho anterior
+        self.lampa.set_white_percentage(1, temp_cor)
+        
+        # 2º Passo: Agora sim, ligamos a lâmpada
+        self.lampa.turn_on()
+        
+        # 3º Passo: Tempo para a lâmpada atualizar o status no Wi-Fi
+        print("Aguardando sincronização da lâmpada na rede...")
+        time.sleep(2)
+        
         passos = 100
         espera_por_passo = (duracao_minutos * 60) / passos 
         
         for brilho in range(1, 101):
+            # Obtém o status atual da lâmpada
             status_atual = self.lampa.status()
             
-            # DPS 20 = On/Off status
-            if not status_atual.get('dps', {}).get('20'): 
-                print("\nInterrupção detectada! Lâmpada desligada manualmente. Bom dia!")
-                return False
+            # Validação segura (às vezes a rede falha e o status vem vazio)
+            if status_atual and 'dps' in status_atual:
+                if not status_atual['dps'].get('20'): 
+                    print("\nInterrupção detectada! Lâmpada desligada manualmente. Bom dia!")
+                    return False
                 
             self.lampa.set_white_percentage(brilho, temp_cor)
             time.sleep(espera_por_passo)
