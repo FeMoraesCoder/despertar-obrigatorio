@@ -42,37 +42,64 @@ class LampaDespertador:
         espera_por_passo = (duracao_minutos * 60) / passos 
         
         for brilho in range(1, 101):
-            # Obtém o status atual da lâmpada
             status_atual = self.lampa.status()
             
-            # Validação segura (às vezes a rede falha e o status vem vazio)
             if status_atual and 'dps' in status_atual:
-                if not status_atual['dps'].get('20'): 
-                    print("\nInterrupção detectada! Lâmpada desligada manualmente. Bom dia!")
+                dps = status_atual['dps']
+                
+                # Se a lâmpada for desligada, nós a ligamos de volta imediatamente
+                # para impedir a sabotagem do sono!
+                if not dps.get('20'):
+                    print("\nTentativa de sabotagem! Relicando a lâmpada...")
+                    self.lampa.turn_on()
+                
+                # O gatilho de desarme agora é mudar para o modo de cor no aplicativo
+                modo_atual = dps.get('21')
+                if modo_atual == 'colour':
+                    print("\nDesarme detectado! Usuário mudou para cor.")
+                    print("Travando a luz em Branco Frio (100%) para despertar total.")
+                    self.lampa.set_mode('white')
+                    # Brilho 100, Temperatura 10 (Fria/Azulada)
+                    self.lampa.set_white_percentage(100, 10) 
                     return False
                 
             self.lampa.set_white_percentage(brilho, temp_cor)
             time.sleep(espera_por_passo)
-            
         print("\nFase 1 concluída.")
         return True
 
     def ativar_modo_insuportavel(self, timeout_minutos=5):
         """
         Fase 2: Alerta Crítico. Loop de strobo vermelho e azul.
+        Desarme: Mudar para o modo 'white' no aplicativo.
         """
         print("Iniciando Fase 2: MODO INSUPORTÁVEL!")
         
         tempo_fim = time.time() + (timeout_minutos * 60)
         
+        # Garante que estamos no modo de cor para o strobo
+        self.lampa.set_mode('colour')
+        
         while time.time() < tempo_fim:
+            status_atual = self.lampa.status()
+            
+            if status_atual and 'dps' in status_atual:
+                # Se o usuário mudar para o modo branco no app, desarmamos o strobo
+                if status_atual['dps'].get('21') == 'white':
+                    print("\nDesarme de emergência ativado!")
+                    self.lampa.set_white_percentage(100, 10) # Trava no branco frio
+                    return
+            
+            # Strobo
             self.lampa.set_colour(r=255, g=0, b=0)
             time.sleep(1)
             self.lampa.set_colour(r=0, g=0, b=255)
             time.sleep(1)
             
         print("Fim do modo insuportável.")
-        self.lampa.turn_off()
+        # Após o timeout, deixa a luz branca e forte
+        self.lampa.set_mode('white')
+        self.lampa.set_white_percentage(100, 10)
 
 
 if __name__ == "__main__":
